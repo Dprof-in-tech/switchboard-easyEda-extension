@@ -1,0 +1,836 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<title>SwitchBoard</title>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<style>
+		* { margin: 0; padding: 0; box-sizing: border-box; }
+
+		body {
+			font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+			background: #1e1e2e;
+			color: #cdd6f4;
+			height: 100vh;
+			display: flex;
+			flex-direction: column;
+			overflow: hidden;
+		}
+
+		/* ── Header ── */
+		.header {
+			background: #181825;
+			padding: 10px 14px;
+			border-bottom: 1px solid #313244;
+			display: flex;
+			align-items: center;
+			gap: 10px;
+			flex-shrink: 0;
+		}
+		.header h1 {
+			font-size: 14px;
+			font-weight: 600;
+			color: #cba6f7;
+			flex: 1;
+		}
+		.status-dot {
+			width: 8px; height: 8px;
+			border-radius: 50%;
+			background: #f38ba8;
+		}
+		.status-dot.connected { background: #a6e3a1; }
+		.status-label {
+			font-size: 11px;
+			color: #6c7086;
+		}
+
+		/* ── Context bar ── */
+		.context-bar {
+			background: #11111b;
+			padding: 6px 14px;
+			border-bottom: 1px solid #313244;
+			font-size: 11px;
+			color: #6c7086;
+			flex-shrink: 0;
+			display: none;
+		}
+		.context-bar.has-context { display: block; }
+		.context-bar strong { color: #89b4fa; }
+
+		/* ── Chat area ── */
+		.chat-area {
+			flex: 1;
+			overflow-y: auto;
+			padding: 12px 14px;
+			display: flex;
+			flex-direction: column;
+			gap: 10px;
+		}
+
+		.message {
+			max-width: 92%;
+			padding: 8px 12px;
+			border-radius: 10px;
+			font-size: 13px;
+			line-height: 1.5;
+			word-wrap: break-word;
+		}
+		.message.user {
+			background: #45475a;
+			align-self: flex-end;
+			border-bottom-right-radius: 3px;
+		}
+		.message.assistant {
+			background: #313244;
+			align-self: flex-start;
+			border-bottom-left-radius: 3px;
+		}
+		.message.system {
+			background: #1e1e2e;
+			border: 1px solid #313244;
+			align-self: center;
+			font-size: 11px;
+			color: #6c7086;
+			text-align: center;
+		}
+		.message pre {
+			background: #11111b;
+			padding: 6px 8px;
+			border-radius: 4px;
+			overflow-x: auto;
+			margin: 4px 0;
+			font-size: 12px;
+		}
+		.message code {
+			background: #11111b;
+			padding: 1px 4px;
+			border-radius: 3px;
+			font-size: 12px;
+		}
+
+		/* ── Streaming indicator ── */
+		.typing-indicator {
+			display: none;
+			align-self: flex-start;
+			padding: 8px 12px;
+			background: #313244;
+			border-radius: 10px;
+			font-size: 13px;
+			color: #6c7086;
+		}
+		.typing-indicator.active { display: block; }
+		.typing-indicator span {
+			animation: blink 1.4s infinite both;
+		}
+		.typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+		.typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+		@keyframes blink {
+			0%, 80%, 100% { opacity: 0.3; }
+			40% { opacity: 1; }
+		}
+
+		/* ── Input area ── */
+		.input-area {
+			padding: 10px 14px;
+			background: #181825;
+			border-top: 1px solid #313244;
+			flex-shrink: 0;
+		}
+		.input-row {
+			display: flex;
+			gap: 8px;
+		}
+		.input-row textarea {
+			flex: 1;
+			background: #313244;
+			border: 1px solid #45475a;
+			border-radius: 8px;
+			padding: 8px 10px;
+			color: #cdd6f4;
+			font-family: inherit;
+			font-size: 13px;
+			resize: none;
+			outline: none;
+			min-height: 36px;
+			max-height: 120px;
+		}
+		.input-row textarea:focus {
+			border-color: #cba6f7;
+		}
+		.input-row textarea::placeholder {
+			color: #6c7086;
+		}
+		.send-btn {
+			background: #cba6f7;
+			color: #1e1e2e;
+			border: none;
+			border-radius: 8px;
+			padding: 0 14px;
+			font-weight: 600;
+			font-size: 13px;
+			cursor: pointer;
+			flex-shrink: 0;
+		}
+		.send-btn:hover { background: #b4befe; }
+		.send-btn:disabled {
+			opacity: 0.5;
+			cursor: not-allowed;
+		}
+
+		/* ── Quick actions ── */
+		.quick-actions {
+			display: flex;
+			gap: 6px;
+			margin-top: 6px;
+			flex-wrap: wrap;
+		}
+		.quick-btn {
+			background: #313244;
+			border: 1px solid #45475a;
+			border-radius: 6px;
+			padding: 4px 10px;
+			color: #89b4fa;
+			font-size: 11px;
+			cursor: pointer;
+		}
+		.quick-btn:hover {
+			background: #45475a;
+			border-color: #89b4fa;
+		}
+	</style>
+</head>
+<body>
+	<!-- Header -->
+	<div class="header">
+		<h1>SwitchBoard</h1>
+		<div class="status-dot" id="statusDot"></div>
+		<span class="status-label" id="statusLabel">Connecting...</span>
+	</div>
+
+	<!-- Context bar -->
+	<div class="context-bar" id="contextBar">
+		Schematic: <strong id="contextSummary">—</strong>
+	</div>
+
+	<!-- Chat messages -->
+	<div class="chat-area" id="chatArea">
+		<div class="message system">
+			SwitchBoard<br>
+			Connected to your local Ollama instance.<br>
+			Ask about your schematic, request a design review, or get subcircuit suggestions.
+		</div>
+	</div>
+
+	<!-- Typing indicator -->
+	<div class="typing-indicator" id="typingIndicator">
+		<span>.</span><span>.</span><span>.</span>
+	</div>
+
+	<!-- Input -->
+	<div class="input-area">
+		<div class="input-row">
+			<textarea
+				id="chatInput"
+				placeholder="Ask about your design..."
+				rows="1"
+			></textarea>
+			<button class="send-btn" id="sendBtn" onclick="sendMessage()">Send</button>
+		</div>
+		<div class="quick-actions">
+			<button class="quick-btn" onclick="quickAction('newdesign')" style="background:#a6e3a1;color:#1e1e2e">+ New Design</button>
+			<button class="quick-btn" onclick="quickAction('review')">Design Review</button>
+			<button class="quick-btn" onclick="quickAction('bom')">BOM</button>
+			<button class="quick-btn" onclick="quickAction('subcircuits')">Subcircuits</button>
+			<button class="quick-btn" onclick="quickAction('fixdrc')">Fix DRC</button>
+			<button class="quick-btn" onclick="syncSchematic()">Sync</button>
+		</div>
+	</div>
+
+	<script>
+		const BACKEND = 'http://localhost:7777';
+		const SESSION_ID = 'easyeda-ext';
+		let isStreaming = false;
+
+		// ── Init ──
+		checkHealth();
+		setInterval(checkHealth, 30000);
+
+		// Auto-resize textarea
+		const input = document.getElementById('chatInput');
+		input.addEventListener('input', function () {
+			this.style.height = 'auto';
+			this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+		});
+		input.addEventListener('keydown', function (e) {
+			if (e.key === 'Enter' && !e.shiftKey) {
+				e.preventDefault();
+				sendMessage();
+			}
+		});
+
+		// ── Test write-back: place a text label on the schematic ──
+		async function testWriteBack() {
+			addMessage('system', 'Testing write-back pipeline...');
+
+			// Step 1: Check if we can access the extension function
+			var fnType = 'unavailable';
+			try { fnType = typeof window.parent.__switchboard_applyEdits; } catch(e) { fnType = 'error: ' + e.message; }
+			addMessage('system', '[test] applyEdits type: ' + fnType);
+
+			if (fnType === 'function') {
+				// Read component positions to find a valid coordinate range
+				var testX = 5000, testY = 4000; // default guess
+				try {
+					var ctx = window.parent.__switchboard_context;
+					if (ctx && ctx.components && ctx.components.length > 0) {
+						// Find first component with non-zero coordinates
+						for (var ci = 0; ci < ctx.components.length; ci++) {
+							var cc = ctx.components[ci];
+							if (cc.x && cc.y) {
+								testX = cc.x + 200;
+								testY = cc.y - 100;
+								addMessage('system', '[test] Placing near ' + cc.ref + ' at (' + cc.x + ',' + cc.y + ') → text at (' + testX + ',' + testY + ')');
+								break;
+							}
+						}
+					}
+				} catch(e) {}
+
+				// Direct call test: add a text label
+				try {
+					var results = await window.parent.__switchboard_applyEdits([
+						{ op: 'add_text', x: testX, y: testY, content: 'SwitchBoard Test OK' }
+					]);
+					if (results && results.length > 0) {
+						var r = results[0];
+						if (r.ok) {
+							addMessage('system', '**Write-back WORKS!** Text "SwitchBoard Test OK" placed on schematic. Check your EasyEDA canvas.');
+						} else {
+							addMessage('system', '[test] EDA API failed: ' + (r.error || 'unknown'));
+						}
+					} else {
+						addMessage('system', '[test] No results returned from applyEdits');
+					}
+				} catch(e) {
+					addMessage('system', '[test] Direct call threw: ' + (e.message || e));
+
+					// Try via shared variable as fallback
+					addMessage('system', '[test] Trying shared variable method...');
+					try {
+						var reqId = Date.now();
+						var beforeTs = 0;
+						try { beforeTs = window.parent.__switchboard_edit_results_ts || 0; } catch(e2) {}
+						window.parent.__switchboard_edit_request = {
+							actions: [{ op: 'add_text', x: testX, y: testY, content: 'SwitchBoard Test OK' }],
+							id: reqId
+						};
+
+						var pollResult = await new Promise(function(resolve) {
+							var count = 0;
+							var p = setInterval(function() {
+								count++;
+								try {
+									var ts = window.parent.__switchboard_edit_results_ts;
+									if (ts && ts > beforeTs) { clearInterval(p); resolve(window.parent.__switchboard_edit_results); return; }
+								} catch(e3) {}
+								if (count > 20) { clearInterval(p); resolve(null); }
+							}, 300);
+						});
+
+						if (pollResult && pollResult.length > 0 && pollResult[0].ok) {
+							addMessage('system', '**Write-back WORKS via polling!** Text placed on schematic.');
+						} else if (pollResult) {
+							addMessage('system', '[test] Polling got result but failed: ' + JSON.stringify(pollResult[0]));
+						} else {
+							addMessage('system', '[test] Polling timed out. Extension poller not running.');
+						}
+					} catch(e2) {
+						addMessage('system', '[test] Shared variable method failed: ' + (e2.message || e2));
+					}
+				}
+			} else {
+				addMessage('system', '[test] Function not accessible. Extension may need to be reloaded.');
+			}
+		}
+
+		// Auto-sync: read schematic data from the extension's global variable
+		var pendingAction = null;
+		if (window.location.hash === '#subcircuits') { pendingAction = 'subcircuits'; }
+		if (window.location.hash === '#review') { pendingAction = 'review'; }
+
+		setTimeout(async () => {
+			loadSchematicFromExtension();
+			// Load previous chat history if session exists
+			await loadChatHistory();
+		}, 300);
+
+		// ── Health check ──
+		async function checkHealth() {
+			try {
+				const resp = await fetch(BACKEND + '/api/health');
+				const data = await resp.json();
+				const dot = document.getElementById('statusDot');
+				const label = document.getElementById('statusLabel');
+				if (data.ollama) {
+					dot.classList.add('connected');
+					label.textContent = data.models && data.models.length
+						? data.models[0]
+						: 'Connected';
+				} else {
+					dot.classList.remove('connected');
+					label.textContent = 'Ollama offline';
+				}
+			} catch {
+				document.getElementById('statusDot').classList.remove('connected');
+				document.getElementById('statusLabel').textContent = 'Backend offline';
+			}
+		}
+
+		// ── Refresh context from live EasyEDA and push to backend ──
+		async function refreshAndSync(silent) {
+			try {
+				var refreshFn = window.parent.__switchboard_refreshContext;
+				if (typeof refreshFn === 'function') {
+					var ctx = await refreshFn();
+					if (ctx && ctx.components && ctx.components.length > 0) {
+						(window.parent.__switchboard_context) = ctx;
+						await pushContextToBackend(ctx, silent !== false);
+						return true;
+					}
+				}
+			} catch(e) { /* ignore */ }
+			return false;
+		}
+
+		// ── Send message with streaming ──
+		async function sendMessage() {
+			const input = document.getElementById('chatInput');
+			const msg = input.value.trim();
+			if (!msg || isStreaming) return;
+
+			addMessage('user', msg);
+			input.value = '';
+			input.style.height = 'auto';
+
+			isStreaming = true;
+			document.getElementById('sendBtn').disabled = true;
+			const indicator = document.getElementById('typingIndicator');
+			indicator.classList.add('active');
+
+			// Auto-sync EasyEDA state to backend before each message
+			await refreshAndSync();
+
+			try {
+				const resp = await fetch(BACKEND + '/api/chat/stream', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						message: msg,
+						session_id: SESSION_ID,
+						model: 'glm-5:cloud',
+					}),
+				});
+
+				const reader = resp.body.getReader();
+				const decoder = new TextDecoder();
+				let assistantDiv = null;
+				let fullText = '';
+
+				while (true) {
+					const { done, value } = await reader.read();
+					if (done) break;
+
+					const chunk = decoder.decode(value, { stream: true });
+					const lines = chunk.split('\n');
+
+					for (const line of lines) {
+						if (!line.startsWith('data: ')) continue;
+						try {
+							const payload = JSON.parse(line.substring(6));
+
+							if (payload.token) {
+								if (!assistantDiv) {
+									indicator.classList.remove('active');
+									assistantDiv = addMessage('assistant', '');
+								}
+								fullText += payload.token;
+								assistantDiv.innerHTML = renderMarkdown(fullText);
+								scrollToBottom();
+							}
+
+							if (payload.done) {
+								// Done
+							}
+
+							if (payload.error) {
+								if (!assistantDiv) {
+									assistantDiv = addMessage('assistant', '');
+								}
+								assistantDiv.innerHTML = '<span style="color:#f38ba8">Error: ' +
+									escapeHtml(payload.error) + '</span>';
+							}
+
+							if (payload.edits && payload.edits.length > 0) {
+								applyEditsToEDA(payload.edits);
+							}
+
+							if (payload.validation && payload.validation.has_warnings) {
+								var warnLines = payload.validation.warnings.map(function(w) { return '- ' + w; }).join('\n');
+								var warnDiv = addMessage('system',
+									'**Validation:**\n' + warnLines
+								);
+								warnDiv.style.borderLeft = '3px solid #fab387';
+							}
+
+							if (payload.retry) {
+								indicator.classList.add('active');
+								var retryDiv = addMessage('system', '**Auto-correcting:** ' + (payload.reason || 'Retrying...'));
+								retryDiv.style.borderLeft = '3px solid #89b4fa';
+								// The corrected tokens will stream into a new assistant message
+								assistantDiv = null;
+								fullText = '';
+							}
+						} catch { /* ignore malformed SSE lines */ }
+					}
+				}
+			} catch (e) {
+				indicator.classList.remove('active');
+				addMessage('system', 'Failed to reach backend. Is SwitchBoard running on localhost:7777?');
+			}
+
+			isStreaming = false;
+			document.getElementById('sendBtn').disabled = false;
+			indicator.classList.remove('active');
+		}
+
+		// ── Quick actions ──
+		async function quickAction(action) {
+			if (action === 'newdesign') {
+				// Show a prompt for the user to describe their design
+				var desc = prompt('Describe the circuit you want to build:\n\nExamples:\n• "ATmega328P with 4 relay channels and Bluetooth control"\n• "ESP32 with RS485, temperature sensor, and OLED display"\n• "555 timer astable circuit with LED output"');
+				if (!desc || !desc.trim()) return;
+
+				addMessage('system', 'Starting new design...');
+
+				// Clear backend session for fresh start
+				try {
+					await fetch(BACKEND + '/api/context', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({
+							components: [], nets: [], wires: [],
+							rawNetlist: '', summary: 'Empty schematic — new design',
+							session_id: SESSION_ID,
+						}),
+					});
+				} catch { /* */ }
+
+				// Send to AI with instructions to build from scratch
+				var buildPrompt = 'I have a blank schematic open. Build this design from scratch:\n\n' + desc.trim() + '\n\nAdd ALL components with their pin connections using the "connections" field. Include power connections (VCC, GND), decoupling caps, and all necessary supporting components. Use proper LCSC part numbers from the subcircuit templates where available.';
+				document.getElementById('chatInput').value = buildPrompt;
+				sendMessage();
+				return;
+			}
+			else if (action === 'review') {
+				addMessage('system', 'Running design review...');
+				try {
+					const resp = await fetch(BACKEND + '/api/review', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ session_id: SESSION_ID }),
+					});
+					const data = await resp.json();
+					if (data.error) {
+						addMessage('system', 'Review error: ' + data.error);
+					} else {
+						addMessage('assistant', data.review);
+					}
+				} catch {
+					addMessage('system', 'Cannot reach backend.');
+				}
+			}
+			else if (action === 'bom') {
+				try {
+					const resp = await fetch(BACKEND + '/api/bom', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ session_id: SESSION_ID }),
+					});
+					const data = await resp.json();
+					if (data.error) {
+						addMessage('system', data.error);
+					} else {
+						let bomText = '**Bill of Materials:**\n\n';
+						bomText += '| Ref | Value | Package | Qty |\n|-----|-------|---------|-----|\n';
+						for (const item of data.bom) {
+							bomText += `| ${item.refs.join(', ')} | ${item.value} | ${item.package} | ${item.qty} |\n`;
+						}
+						addMessage('assistant', bomText);
+					}
+				} catch {
+					addMessage('system', 'Cannot reach backend.');
+				}
+			}
+			else if (action === 'subcircuits') {
+				try {
+					const resp = await fetch(BACKEND + '/api/subcircuits');
+					const data = await resp.json();
+					if (data.subcircuits && data.subcircuits.length) {
+						let text = '**Available Subcircuits:**\n\n';
+						for (const sc of data.subcircuits) {
+							text += `- **${sc.name || sc.id}**: ${sc.description || ''}\n`;
+						}
+						text += '\nAsk me to add any subcircuit to your design.';
+						addMessage('assistant', text);
+					} else {
+						addMessage('system', 'No subcircuit templates available.');
+					}
+				} catch {
+					addMessage('system', 'Cannot reach backend.');
+				}
+			}
+			else if (action === 'fixdrc') {
+				addMessage('system', 'Fixing DRC issues...');
+				try {
+					var fixFn = window.parent.__switchboard_fixDrc;
+					if (typeof fixFn === 'function') {
+						var results = await fixFn();
+						addMessage('system', results || 'DRC fix complete.');
+					} else {
+						addMessage('system', 'Fix DRC not available — extension needs reload.');
+					}
+				} catch(e) {
+					addMessage('system', 'DRC fix error: ' + (e.message || e));
+				}
+			}
+		}
+
+		// ── Read schematic from extension's global variable ──
+		function loadSchematicFromExtension() {
+			try {
+				var ctx = null;
+				// Try reading from parent window's global
+				try { ctx = window.parent.__switchboard_context; } catch(e) {}
+				// Fallback: try top window
+				if (!ctx) { try { ctx = window.top.__switchboard_context; } catch(e) {} }
+
+				if (ctx && ctx.components && ctx.components.length > 0) {
+					updateContextBar(ctx.summary || 'Schematic loaded');
+					pushContextToBackend(ctx);
+				} else {
+					var err = '';
+					try { err = window.parent.__switchboard_error || ''; } catch(e) {}
+					if (err) {
+						addMessage('system', 'Extension error: ' + err);
+					}
+					// No data yet — that's OK, user can sync later
+				}
+			} catch(e) {
+				addMessage('system', 'Could not read schematic from extension.');
+			}
+		}
+
+		// ── Sync button: re-read live schematic from EasyEDA ──
+		async function syncSchematic() {
+			addMessage('system', 'Reading live schematic from EasyEDA...');
+			var synced = await refreshAndSync(false);
+			if (synced) {
+				var ctx = window.parent.__switchboard_context;
+				updateContextBar(ctx.summary || 'Schematic loaded');
+			} else {
+				// Fall back to cached global
+				loadSchematicFromExtension();
+			}
+		}
+
+		// ── Push context to backend (sets session state properly) ──
+		// silent=true suppresses the "Schematic loaded" message (used for auto-sync)
+		async function pushContextToBackend(ctx, silent) {
+			try {
+				const resp = await fetch(BACKEND + '/api/context', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						components: ctx.components || [],
+						nets: ctx.nets || [],
+						wires: ctx.wires || [],
+						rawNetlist: ctx.rawNetlist || '',
+						summary: ctx.summary || '',
+						session_id: SESSION_ID,
+					}),
+				});
+				const data = await resp.json();
+
+				if (data.success && !silent) {
+					var netStatus = data.hasNetlist ? ' (with netlist connectivity)' : ' (no netlist — AI may not see connections)';
+					addMessage('system',
+						'Schematic loaded: ' + data.components +
+						' components, ' + data.nets + ' nets' + netStatus + '.\n' +
+						'The AI now has your design context. Ask anything!');
+				} else if (!data.success) {
+					addMessage('system', 'Sync error: ' + (data.error || 'unknown'));
+				}
+
+				// Run pending action after sync
+				if (pendingAction) {
+					var action = pendingAction;
+					pendingAction = null;
+					setTimeout(() => quickAction(action), 300);
+				}
+			} catch {
+				if (!silent) {
+					addMessage('system', 'Failed to reach backend. Is SwitchBoard running on localhost:7777?');
+				}
+			}
+		}
+
+		// ── Load chat history from backend session ──
+		async function loadChatHistory() {
+			try {
+				const resp = await fetch(BACKEND + '/api/session/history', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ session_id: SESSION_ID }),
+				});
+				const data = await resp.json();
+				if (data.history && data.history.length > 0) {
+					// Clear default system messages before loading history
+					const chatArea = document.getElementById('chatArea');
+					const existingMsgs = chatArea.querySelectorAll('.message');
+					existingMsgs.forEach(m => m.remove());
+
+					addMessage('system', 'Previous session restored (' + data.history.length + ' messages)');
+					for (const msg of data.history) {
+						if (msg.role === 'user' || msg.role === 'assistant') {
+							addMessage(msg.role, msg.content);
+						}
+					}
+				}
+			}
+			catch { /* No history or backend offline — that's fine */ }
+		}
+
+		function updateContextBar(summary) {
+			const bar = document.getElementById('contextBar');
+			document.getElementById('contextSummary').textContent = summary;
+			bar.classList.add('has-context');
+		}
+
+		// ── Apply edits to the live EasyEDA schematic via extension ──
+		async function applyEditsToEDA(edits) {
+			try {
+				// Convert backend edit format to extension edit actions
+				var actions = [];
+				for (var edit of edits) {
+					var action = edit.action || edit;
+					if (action && action.op) {
+						actions.push(action);
+					}
+				}
+				if (actions.length === 0) {
+					addMessage('system', '[debug] No edit actions parsed from backend response.');
+					return;
+				}
+
+				var results = null;
+
+				// Direct function call — confirmed working
+				try {
+					var applyFn = window.parent.__switchboard_applyEdits;
+					if (typeof applyFn === 'function') {
+						results = await applyFn(actions);
+					}
+				} catch(e) {
+					addMessage('system', 'Write-back error: ' + (e.message || e));
+				}
+
+				if (!results) {
+					addMessage('system', 'Write-back timed out — edits saved in backend only.');
+					return;
+				}
+
+				var applied = 0, failed = 0;
+				var msgs = [];
+				for (var r of results) {
+					if (r.ok) { applied++; msgs.push(r.msg); }
+					else { failed++; msgs.push('Failed: ' + (r.error || 'unknown')); }
+				}
+
+				if (applied > 0 || failed > 0) {
+					addMessage('system',
+						'**EasyEDA schematic updated:** ' + applied + ' applied, ' + failed + ' failed\n' +
+						msgs.join('\n'));
+				}
+
+				// Re-sync EasyEDA state to backend after edits so the AI sees current state
+				if (applied > 0) {
+					setTimeout(function() { refreshAndSync(); }, 500);
+				}
+			} catch(e) {
+				addMessage('system', '[debug] applyEditsToEDA error: ' + (e.message || e));
+			}
+		}
+
+		// ── DOM helpers ──
+		function addMessage(role, text) {
+			const area = document.getElementById('chatArea');
+			const div = document.createElement('div');
+			div.className = 'message ' + role;
+			div.innerHTML = role === 'user' ? escapeHtml(text) : renderMarkdown(text);
+			area.appendChild(div);
+			scrollToBottom();
+			return div;
+		}
+
+		function scrollToBottom() {
+			const area = document.getElementById('chatArea');
+			area.scrollTop = area.scrollHeight;
+		}
+
+		function escapeHtml(str) {
+			const div = document.createElement('div');
+			div.textContent = str;
+			return div.innerHTML;
+		}
+
+		// Simple markdown renderer (bold, code, code blocks, lists, tables)
+		function renderMarkdown(text) {
+			let html = escapeHtml(text);
+
+			// Code blocks
+			html = html.replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>');
+
+			// Inline code
+			html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+			// Bold
+			html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+
+			// Italic
+			html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+
+			// Headers
+			html = html.replace(/^### (.+)$/gm, '<strong style="font-size:14px">$1</strong>');
+			html = html.replace(/^## (.+)$/gm, '<strong style="font-size:15px">$1</strong>');
+
+			// Lists
+			html = html.replace(/^- (.+)$/gm, '&bull; $1');
+			html = html.replace(/^\d+\. (.+)$/gm, '&bull; $1');
+
+			// Tables (basic)
+			html = html.replace(/\|---[-|]+\|/g, '');
+			html = html.replace(/^\|(.+)\|$/gm, function (match, inner) {
+				const cells = inner.split('|').map(c => c.trim());
+				return '<div style="display:flex;gap:8px;font-size:11px">' +
+					cells.map(c => '<span style="flex:1">' + c + '</span>').join('') +
+					'</div>';
+			});
+
+			// Line breaks
+			html = html.replace(/\n/g, '<br>');
+
+			return html;
+		}
+	</script>
+</body>
+</html>

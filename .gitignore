@@ -1,0 +1,42 @@
+# Dependencies
+node_modules/
+pro-api-sdk/
+
+# Build output
+extension/dist/
+*.eext
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.venv/
+*.egg-info/
+
+# Web editor (standalone UI — not for distribution)
+backend/pcb-ai-assistant/templates/
+
+# Sessions & uploads (user data)
+backend/pcb-ai-assistant/sessions/
+backend/pcb-ai-assistant/uploads/
+backend/pcb-ai-assistant/outputs/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment
+.env
+.env.local
+
+# Claude Code
+CLAUDE.md
+backend/pcb-ai-assistant/CLAUDE.md
+.claude/

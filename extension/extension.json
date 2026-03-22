@@ -1,0 +1,80 @@
+{
+	"name": "switchboard",
+	"uuid": "2ed00c6faa3c4c288a495bfe306c2cc8",
+	"displayName": "SwitchBoard",
+	"description": "AI-powered PCB and schematic design assistant powered by local Ollama",
+	"version": "1.0.0",
+	"publisher": "TheGarage",
+	"engines": {
+		"eda": "^3.0.0"
+	},
+	"license": "MIT",
+	"repository": {
+		"type": "extension-store",
+		"url": ""
+	},
+	"categories": "Other",
+	"keywords": [
+		"AI",
+		"copilot",
+		"schematic",
+		"PCB",
+		"design review"
+	],
+	"images": {
+		"logo": "./images/logo.png"
+	},
+	"homepage": "",
+	"bugs": "",
+	"activationEvents": {},
+	"entry": "./dist/index",
+	"dependentExtensions": {},
+	"headerMenus": {
+		"sch": [
+			{
+				"id": "SwitchBoard",
+				"title": "SwitchBoard",
+				"menuItems": [
+					{
+						"id": "OpenChat",
+						"title": "Open Chat",
+						"registerFn": "openChat"
+					},
+					{
+						"id": "SyncSchematic",
+						"title": "Sync Schematic",
+						"registerFn": "syncSchematic"
+					},
+					{
+						"id": "DesignReview",
+						"title": "Design Review",
+						"registerFn": "designReview"
+					},
+					{
+						"id": "SubcircuitSuggest",
+						"title": "Suggest Subcircuit",
+						"registerFn": "suggestSubcircuit"
+					}
+				]
+			}
+		],
+		"pcb": [
+			{
+				"id": "SwitchBoard",
+				"title": "SwitchBoard",
+				"menuItems": [
+					{
+						"id": "OpenChat",
+						"title": "Open Chat",
+						"registerFn": "openChat"
+					},
+					{
+						"id": "DesignReview",
+						"title": "Design Review",
+						"registerFn": "designReview"
+					}
+				]
+			}
+		]
+	}
+}
