@@ -126,7 +126,7 @@ Then in EasyEDA Pro:
 
 ## Author
 
-**Isaac Onyemaechi** — Software Engineer at The Garage
+**Isaac Onyemaechi** — Software Engineer
 
 ## License
 
