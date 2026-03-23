@@ -124,6 +124,39 @@ Then in EasyEDA Pro:
 - **AI**: Ollama (any compatible model)
 - **UI**: Vanilla HTML/CSS/JS (no framework — runs in EasyEDA's iframe sandbox)
 
+## Project Structure
+
+```
+switchboard-easyEda-extension/
+├── extension/                 # EasyEDA Pro extension (TypeScript)
+│   ├── src/index.ts           # Core logic: schematic reading, smart placement, IPC bridge
+│   ├── iframe/index.html      # Chat UI (self-contained, no framework)
+│   ├── extension.json         # Extension manifest (menus, UUID, entry point)
+│   └── config/                # esbuild configuration
+│
+└── backend/pcb-ai-assistant/  # Flask server (Python)
+    ├── server.py              # API routes, AI orchestration, session management
+    ├── ollama_client.py       # HTTP wrapper for Ollama (streaming + non-streaming)
+    ├── knowledge_base.py      # System prompts and subcircuit templates
+    ├── schematic_editor.py    # In-memory schematic mutations
+    ├── action_validator.py    # 4-layer validation for AI-generated actions
+    ├── easyeda_parser.py      # EasyEDA JSON / text netlist parser
+    └── schematic_exporter.py  # Export session back to EasyEDA format
+```
+
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for a deeper walkthrough of the architecture, IPC bridge design, and how to add new subcircuit templates.
+
+## Troubleshooting
+
+| Problem | Fix |
+|---------|-----|
+| Chat panel is blank | Ensure backend is running (`python server.py`) and reachable at `http://localhost:7777` |
+| "Ollama not reachable" error | Run `ollama serve` and confirm the model is pulled (`ollama list`) |
+| Extension not visible in EasyEDA | Re-import the `.eext` file and enable "Allow external interaction" in Extension Manager |
+| Component placed but not wired | Click **Sync Schematic** to refresh context, then ask again |
+| Actions applied but schematic unchanged | The action may have been blocked by validation; check the chat response for details |
+| Build fails (`Cannot find module`) | Run `npm install` inside the `extension/` directory first |
+
 ## Author
 
 **Isaac Onyemaechi** — Software Engineer
